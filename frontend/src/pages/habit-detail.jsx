@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Edit2, Trash2, Calendar as CalendarIcon, Flame, BarChart3, Clock, CheckCircle2, Circle } from "lucide-react";
+import { ArrowLeft, Edit2, Trash2, Flame, BarChart3, Clock, CheckCircle2, Circle } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { ProgressChart } from "../components/progress-chart";
 import { StatsCard } from "../components/stats-card";
@@ -26,6 +26,8 @@ export function HabitDetailPage() {
   }, [id]);
 
   const fetchHabit = async () => {
+    setHabit(null);
+    setProgressData([]);
     try {
       setIsLoading(true);
       setError(null);
@@ -161,7 +163,7 @@ export function HabitDetailPage() {
   const daysSinceCreation = Math.floor((today - createdDate) / (1000 * 60 * 60 * 24));
 
   return (
-    <div className="space-y-6">
+    <div key={id} className="space-y-6">
       <div className="flex items-center gap-4">
         <Button variant="ghost" onClick={() => navigate("/dashboard")}>
           <ArrowLeft className="h-4 w-4 mr-2" />

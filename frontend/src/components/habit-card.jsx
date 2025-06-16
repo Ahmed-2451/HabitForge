@@ -1,6 +1,5 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import { Checkbox } from "./ui/checkbox";
 import { Button } from "./ui/button";
 import { BarChart2, ChevronRight, CheckCircle2, Circle } from "lucide-react";
 

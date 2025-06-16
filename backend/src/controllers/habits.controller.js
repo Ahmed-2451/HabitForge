@@ -417,6 +417,8 @@ export const getHabitStats = async (req, res) => {
       return {
         id: habit.id,
         name: habit.name,
+        description: habit.description,
+        importance: habit.importance,
         completionRate,
         currentStreak: habit.currentStreak,
         longestStreak: habit.longestStreak,

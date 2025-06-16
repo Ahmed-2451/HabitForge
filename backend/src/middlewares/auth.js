@@ -15,7 +15,7 @@ export const authenticateToken = async (req, res, next) => {
     const token = authHeader.split(' ')[1];
 
     // Verify the token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || "habitforge_jwt_secret_key");
     
     // Check if the user exists
     const user = await db.select().from(users).where(eq(users.id, decoded.userId)).get();

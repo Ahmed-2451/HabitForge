@@ -21,6 +21,8 @@ export async function initializeDatabase() {
     CREATE TABLE IF NOT EXISTS habits (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
+      description TEXT,
+      importance INTEGER NOT NULL DEFAULT 5,
       user_id TEXT NOT NULL,
       created_at INTEGER NOT NULL DEFAULT (unixepoch()),
       current_streak INTEGER NOT NULL DEFAULT 0,
@@ -38,6 +40,23 @@ export async function initializeDatabase() {
       UNIQUE (habit_id, date)
     );
   `);
+
+  // Migrate existing habits table: add missing columns if necessary
+  try {
+    const tableInfo = sqlite.prepare("PRAGMA table_info('habits')").all();
+    const hasDescription = tableInfo.some(col => col.name === 'description');
+    if (!hasDescription) {
+      console.log('Migrating: adding description column to habits table');
+      sqlite.exec("ALTER TABLE habits ADD COLUMN description TEXT");
+    }
+    const hasImportance = tableInfo.some(col => col.name === 'importance');
+    if (!hasImportance) {
+      console.log('Migrating: adding importance column to habits table');
+      sqlite.exec("ALTER TABLE habits ADD COLUMN importance INTEGER NOT NULL DEFAULT 5");
+    }
+  } catch (error) {
+    console.error('Migration error:', error);
+  }
 
   console.log("Database initialized successfully");
 } 
