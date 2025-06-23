@@ -29,7 +29,7 @@ export function HabitForm({ onSubmit, initialData = {}, submitLabel = "Add Habit
     },
   });
 
-  const importance = watch("importance");
+
 
   const handleFormSubmit = async (data) => {
     // Convert importance to number

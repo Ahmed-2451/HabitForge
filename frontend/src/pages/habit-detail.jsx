@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Edit2, Trash2, Flame, BarChart3, Clock, CheckCircle2, Circle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Circle } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { ProgressChart } from "../components/progress-chart";
 import { StatsCard } from "../components/stats-card";
@@ -121,12 +121,7 @@ export function HabitDetailPage() {
     setImportanceLoading(false);
   };
 
-  const getPriorityLabel = (value) => {
-    const numValue = parseInt(value);
-    if (numValue >= 8) return "High";
-    if (numValue >= 5) return "Medium";
-    return "Low";
-  };
+
 
   if (isLoading) {
     return (

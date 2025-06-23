@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, primaryKey } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, primaryKey, unique } from "drizzle-orm/sqlite-core";
 
 // Users table
 export const users = sqliteTable("users", {
@@ -30,6 +30,6 @@ export const habitEntries = sqliteTable("habit_entries", {
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(() => new Date()),
 }, (table) => {
   return {
-    habitDateIdx: primaryKey({ columns: [table.habitId, table.date] }),
+    habitDateUnique: unique().on(table.habitId, table.date),
   };
 }); 

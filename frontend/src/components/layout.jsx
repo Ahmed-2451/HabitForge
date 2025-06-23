@@ -1,10 +1,13 @@
 import React from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { LayoutDashboard, LogOut, BarChart3 } from "lucide-react";
 import { Button } from "./ui/button";
+import { useAuth } from "../lib/auth-context";
 
 export function Layout({ children }) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { logout } = useAuth();
   
   const navigation = [
     {
@@ -71,9 +74,14 @@ export function Layout({ children }) {
             <Button
               variant="ghost"
               className="w-full justify-start text-muted-foreground"
-              onClick={() => {
-                // Handle logout
-                window.location.href = "/login";
+              onClick={async () => {
+                try {
+                  await logout();
+                  navigate("/login");
+                } catch (error) {
+                  console.error("Logout error:", error);
+                  navigate("/login");
+                }
               }}
             >
               <LogOut className="mr-2 h-4 w-4" />

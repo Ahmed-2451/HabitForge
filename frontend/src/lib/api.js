@@ -1,5 +1,5 @@
-// API base URL
-const API_URL = "http://localhost:5000/api";
+// API base URL - Use proxy in development, direct URL in production
+const API_URL = import.meta.env.DEV ? "/api" : "http://localhost:5000/api";
 
 // Get token from local storage
 const getToken = () => localStorage.getItem('token');

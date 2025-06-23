@@ -27,7 +27,7 @@ export function AuthProvider({ children }) {
         const { user } = await authApi.getCurrentUser();
         setUser(user);
       } catch (error) {
-        console.log("Not authenticated");
+  
         // Clear token if it's invalid
         localStorage.removeItem('token');
         setUser(null);

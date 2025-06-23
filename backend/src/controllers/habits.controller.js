@@ -3,10 +3,11 @@ import { habits, habitEntries } from "../db/schema.js";
 import { eq, and, desc, sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
-// Get all habits for the current user
+// Get all habits for the current user with today's completion status
 export const getHabits = async (req, res) => {
   try {
     const userId = req.user.id;
+    const today = new Date().toISOString().split('T')[0];
     
     const userHabits = await db
       .select()
@@ -15,7 +16,23 @@ export const getHabits = async (req, res) => {
       .orderBy(desc(habits.createdAt))
       .all();
     
-    return res.status(200).json({ habits: userHabits });
+    // Get today's completion status for each habit
+    const habitsWithCompletion = await Promise.all(
+      userHabits.map(async (habit) => {
+        const todayEntry = await db
+          .select()
+          .from(habitEntries)
+          .where(and(eq(habitEntries.habitId, habit.id), eq(habitEntries.date, today)))
+          .get();
+        
+        return {
+          ...habit,
+          completed: todayEntry ? todayEntry.completed : false
+        };
+      })
+    );
+    
+    return res.status(200).json({ habits: habitsWithCompletion });
   } catch (error) {
     console.error("Get habits error:", error);
     return res.status(500).json({ message: "Server error while fetching habits" });
@@ -166,6 +183,8 @@ export const toggleHabitCompletion = async (req, res) => {
     const { date, completed } = req.body;
     const userId = req.user.id;
     
+
+    
     if (!date) {
       return res.status(400).json({ message: "Date is required" });
     }
@@ -190,21 +209,27 @@ export const toggleHabitCompletion = async (req, res) => {
     
     if (existingEntry) {
       // Update existing entry
+      const newCompleted = completed ?? !existingEntry.completed;
+
+      
       await db
         .update(habitEntries)
-        .set({ completed: completed ?? !existingEntry.completed })
+        .set({ completed: newCompleted })
         .where(and(eq(habitEntries.habitId, id), eq(habitEntries.date, date)))
         .run();
     } else {
       // Create new entry
       const entryId = randomUUID();
+      const newCompleted = completed ?? true;
+
+      
       await db
         .insert(habitEntries)
         .values({
           id: entryId,
           habitId: id,
           date,
-          completed: completed ?? true,
+          completed: newCompleted,
           createdAt: new Date(),
         })
         .run();
@@ -248,20 +273,23 @@ export const getHabitEntries = async (req, res) => {
       return res.status(404).json({ message: "Habit not found" });
     }
     
-    let query = db
-      .select()
-      .from(habitEntries)
-      .where(eq(habitEntries.habitId, id));
+    // Build where conditions array
+    const whereConditions = [eq(habitEntries.habitId, id)];
     
     if (startDate) {
-      query = query.where(sql`${habitEntries.date} >= ${startDate}`);
+      whereConditions.push(sql`${habitEntries.date} >= ${startDate}`);
     }
     
     if (endDate) {
-      query = query.where(sql`${habitEntries.date} <= ${endDate}`);
+      whereConditions.push(sql`${habitEntries.date} <= ${endDate}`);
     }
     
-    const entries = await query.orderBy(habitEntries.date).all();
+    const entries = await db
+      .select()
+      .from(habitEntries)
+      .where(and(...whereConditions))
+      .orderBy(habitEntries.date)
+      .all();
     
     return res.status(200).json({ entries });
   } catch (error) {
@@ -301,7 +329,7 @@ async function updateStreaks(habitId) {
     if (latestEntry.date === today || latestEntry.date === yesterday) {
       currentStreak = 1; // Start with 1 for the latest day
       
-      // Count consecutive days backwards
+      // Count consecutive days backwards from the latest entry
       for (let i = entries.length - 2; i >= 0; i--) {
         const currentDate = new Date(entries[i].date);
         const prevDate = new Date(entries[i + 1].date);
@@ -318,14 +346,32 @@ async function updateStreaks(habitId) {
       }
     }
     
-    // Get the current habit to compare with longest streak
-    const habit = await db
-      .select()
-      .from(habits)
-      .where(eq(habits.id, habitId))
-      .get();
+    // Calculate longest streak by examining all possible consecutive streaks
+    let longestStreak = 0;
+    let tempStreak = 1;
     
-    const longestStreak = Math.max(currentStreak, habit?.longestStreak || 0);
+    for (let i = 1; i < entries.length; i++) {
+      const currentDate = new Date(entries[i].date);
+      const prevDate = new Date(entries[i - 1].date);
+      
+      // Check if dates are consecutive (exactly 1 day apart)
+      const diffTime = currentDate - prevDate;
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      if (diffDays === 1) {
+        tempStreak++;
+      } else {
+        // End of a streak, update longest if necessary
+        longestStreak = Math.max(longestStreak, tempStreak);
+        tempStreak = 1; // Reset for new streak
+      }
+    }
+    
+    // Don't forget to check the last streak
+    longestStreak = Math.max(longestStreak, tempStreak);
+    
+    // Also consider the current streak for longest
+    longestStreak = Math.max(longestStreak, currentStreak);
     
     // Update the habit with new streak values
     await db
@@ -348,6 +394,8 @@ export const getHabitStats = async (req, res) => {
     const userId = req.user.id;
     const { days = 30 } = req.query; // Default to 30 days
     
+
+    
     // Calculate date range
     const endDate = new Date();
     const startDate = new Date();
@@ -356,12 +404,16 @@ export const getHabitStats = async (req, res) => {
     const startDateStr = startDate.toISOString().split('T')[0];
     const endDateStr = endDate.toISOString().split('T')[0];
     
+
+    
     // Get user's habits
     const userHabits = await db
       .select()
       .from(habits)
       .where(eq(habits.userId, userId))
       .all();
+    
+
     
     if (userHabits.length === 0) {
       return res.status(200).json({
@@ -376,18 +428,24 @@ export const getHabitStats = async (req, res) => {
       });
     }
     
-    // Get all habit entries in the date range
-    const entries = await db
-      .select()
-      .from(habitEntries)
-      .where(
-        and(
-          sql`${habitEntries.habitId} IN (${userHabits.map(h => `'${h.id}'`).join(',')})`,
-          sql`${habitEntries.date} >= ${startDateStr}`,
-          sql`${habitEntries.date} <= ${endDateStr}`
+    // Get all habit entries in the date range - simplified approach
+    const allEntries = [];
+    for (const habit of userHabits) {
+      const entries = await db
+        .select()
+        .from(habitEntries)
+        .where(
+          and(
+            eq(habitEntries.habitId, habit.id),
+            sql`${habitEntries.date} >= ${startDateStr}`,
+            sql`${habitEntries.date} <= ${endDateStr}`
+          )
         )
-      )
-      .all();
+        .all();
+      allEntries.push(...entries);
+    }
+    
+
     
     // Calculate completion per day
     const completionPerDay = [];
@@ -395,7 +453,7 @@ export const getHabitStats = async (req, res) => {
     
     while (current <= endDate) {
       const dateStr = current.toISOString().split('T')[0];
-      const dayEntries = entries.filter(e => e.date === dateStr);
+      const dayEntries = allEntries.filter(e => e.date === dateStr);
       const completedCount = dayEntries.filter(e => e.completed).length;
       
       completionPerDay.push({
@@ -410,9 +468,9 @@ export const getHabitStats = async (req, res) => {
     
     // Calculate habit breakdown (completion rate per habit)
     const habitBreakdown = userHabits.map(habit => {
-      const habitEntries = entries.filter(e => e.habitId === habit.id);
+      const habitEntries = allEntries.filter(e => e.habitId === habit.id);
       const completedEntries = habitEntries.filter(e => e.completed);
-      const completionRate = habitEntries.length > 0 ? Math.round((completedEntries.length / parseInt(days)) * 100) : 0;
+      const completionRate = parseInt(days) > 0 ? Math.round((completedEntries.length / parseInt(days)) * 100) : 0;
       
       return {
         id: habit.id,
